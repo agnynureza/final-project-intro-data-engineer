@@ -127,15 +127,15 @@ class TransformAmazonSalesData(luigi.Task):
             "no_of_ratings": "number_of_ratings",
         }
 
-        amazon_sales_data = amazon_sales_data.rename(columns = rename_cols)
+        amazon_sales_data = amazon_sales_data.rename(columns=rename_cols)
         
         selected_columns = ["main_category", "sub_category", "ratings",
                             "number_of_ratings", "discount_price", "actual_price"]
 
         amazon_sales_data = amazon_sales_data[selected_columns]
 
-        amazon_sales_data["discount_price"] = amazon_sales_data["discount_price"].str.replace("₹", " ")
-        amazon_sales_data["actual_price"] = amazon_sales_data["actual_price"].str.replace("₹", " ")
+        amazon_sales_data["discount_price"] = amazon_sales_data["discount_price"].str.replace("₹", "")
+        amazon_sales_data["actual_price"] = amazon_sales_data["actual_price"].str.replace("₹", "")
         
         validate_value = ['ratings', 'number_of_ratings', 'discount_price', 'actual_price']
         for column in validate_value:
@@ -153,12 +153,12 @@ class TransformAmazonSalesData(luigi.Task):
         columns_missing = ['ratings', 'number_of_ratings', 'discount_price', 'actual_price']
         for column in columns_missing:
             median_value = amazon_sales_data[column].median()
-            amazon_sales_data[column].fillna(median_value, inplace=True)
+            amazon_sales_data[column] = amazon_sales_data[column].fillna(median_value)
 
-        validatation_process(data = amazon_sales_data,
-                             table_name = "amazon_sales")
+        validatation_process(data=amazon_sales_data,
+                             table_name="amazon_sales")
 
-        amazon_sales_data.to_csv(self.output().path, index = False)
+        amazon_sales_data.to_csv(self.output().path, index=False)
         
 
 luigi.build([TransformAmazonSalesData()], local_scheduler = True)
