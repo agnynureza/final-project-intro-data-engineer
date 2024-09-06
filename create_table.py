@@ -23,8 +23,9 @@ class AmazonSale(Base):
     main_category = Column(String(100), nullable=False)
     sub_category = Column(String(100), nullable=True)
     discount_price = Column(Float, nullable=False)
-    actual_size = Column(Float, nullable=False)
-    quantity = Column(Integer, nullable=False)
+    actual_price = Column(Float, nullable=False)
+    ratings = Column(Float, nullable=False)
+    number_of_ratings = Column(Float, nullable=False)
     created_date = Column(DateTime, default=datetime.now)
 
 class ElectronicProduct(Base):
