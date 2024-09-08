@@ -1,10 +1,27 @@
 import requests
 import luigi
 import pandas as pd
+import numpy as np
+import re
+import ast
+import logging
+import time
 from sqlalchemy import create_engine
+from pangres import upsert
+from datetime import datetime
+from sqlalchemy.exc import DataError
+from sqlalchemy.exc import SQLAlchemyError
+
+logging.basicConfig(level=logging.ERROR)
+logger = logging.getLogger(__name__)
 
 def db_source_postgres_engine():
     engine = create_engine("postgresql://postgres:password123@localhost:5499/etl_db")
+
+    return engine
+
+def data_warehouse_postgres_engine():
+    engine = create_engine("postgresql://postgres:12345@localhost:5432/pacmaan", echo=False)
 
     return engine
 
@@ -29,7 +46,6 @@ class ExtractDBAmazonSalesData(luigi.Task):
         extract_sales_data.to_csv(self.output().path, index = False)
 
 class ExtractAPIUniversitiesData(luigi.Task):
-
     def requires(self):
         pass
 
@@ -47,17 +63,15 @@ class ExtractAPIUniversitiesData(luigi.Task):
         extract_uni_data.to_csv(self.output().path, index = False)
         
 class ExtractCsvFileElectronicProducts(luigi.Task):
-    
     def requires(self):
         pass
 
     def output(self):
-        return luigi.LocalTarget("data/raw/electronics_products_pricing_data.csv")
+        return luigi.LocalTarget("data/raw/electronics_products_data.csv")
 
     def run(self):
         pass
 
-#luigi.build([ExtractDBAmazonSalesData(), ExtractAPIUniversitiesData()], local_scheduler = True)
 
 def validatation_process(data, table_name):
     print("========== Start Pipeline Validation ==========")
@@ -108,8 +122,7 @@ class ValidateData(luigi.Task):
 
         validatation_process(data = validate_electronic_data,
                              table_name = "electronic_products")
-        
-# luigi.build([ValidateData()], local_scheduler = True)
+
 
 class TransformAmazonSalesData(luigi.Task):
 
@@ -158,8 +171,227 @@ class TransformAmazonSalesData(luigi.Task):
         validatation_process(data=amazon_sales_data,
                              table_name="amazon_sales")
 
+        amazon_sales_data.insert(0, 'id', range(1, len(amazon_sales_data)+1))
         amazon_sales_data.to_csv(self.output().path, index=False)
+
+class TransformUniversityData(luigi.Task):
+
+    def requires(self):
+        return ExtractAPIUniversitiesData()
+
+    def output(self):
+        return luigi.LocalTarget("data/transform/transform_universities_data.csv")
+
+    def run(self):
+        university_data = pd.read_csv(self.input().path)
+
+        rename_cols = {
+            "domains": "domain",
+            "web_pages": "website",
+        }
+
+        university_data = university_data.rename(columns=rename_cols)
+        
+        selected_columns = ["name", "domain", "website","country"]
+
+        university_data = university_data[selected_columns]
+
+        university_data["domain"] = university_data["domain"].str.replace(r'[\[\]\']', '', regex=True)
+        university_data["website"] = university_data["website"].str.replace(r'[\[\]\']', '', regex=True)
         
 
-luigi.build([TransformAmazonSalesData()], local_scheduler = True)
+        validatation_process(data=university_data,
+                             table_name="universities")
 
+        university_data.insert(0, 'id', range(1, len(university_data)+1))
+        university_data.to_csv(self.output().path, index=False)
+        
+        
+def clean_weight(weight_str):
+    if pd.isna(weight_str):
+        return np.nan
+    
+    weight_str = weight_str.lower().strip()
+    
+    match = re.match(r'([\d.]+)\s*([a-z]+)', weight_str)
+    if not match:
+        return np.nan
+    
+    value, unit = match.groups()
+    value = float(value)
+    
+    if 'oz' in unit or 'ounces' in unit:
+        return value / 16
+    elif 'lb' in unit or 'pounds' in unit:
+        return value
+    elif 'g' in unit:
+        return value / 453.592 # 1 pound = 453.592 grams
+    else:
+        return np.nan
+    
+
+class TransformElectronicsData(luigi.Task):
+
+    def requires(self):
+        return ExtractCsvFileElectronicProducts()
+
+    def output(self):
+        return luigi.LocalTarget("data/transform/transform_electronics_products_data.csv")
+
+    def run(self):
+        electronic_data = pd.read_csv(self.input().path)
+
+        rename_cols = {
+            "id": "electronic_id",
+            "name": "product_name",
+            "weight": "weight_gram",
+            "categories": "category_name",
+            "manufacturer": "manufacturer",
+            "prices.currency": "currency",
+            "prices.amountMax": "price",
+            "prices.availability": "availability",
+            "prices.condition": "condition",
+            "prices.dateSeen": "release_date",
+            "prices.isSale": "is_sale",
+        }
+
+        electronic_data = electronic_data.rename(columns=rename_cols)
+        
+        selected_columns = ["electronic_id", "upc", "weight_gram","product_name", "category_name", "manufacturer",
+                            "currency", "price", "availability", "condition", "release_date", "is_sale"]
+
+        electronic_data = electronic_data[selected_columns]
+        
+        electronic_data["weight_gram"] = electronic_data["weight_gram"].apply(clean_weight)
+        
+        electronic_data["upc"] = electronic_data["upc"].str.replace(',', '')
+            
+        electronic_data["upc"] = pd.to_numeric(electronic_data["upc"], errors='coerce')
+        
+        electronic_data['category_name'] = electronic_data['category_name'].apply(lambda x: np.array(x.split(',')) if isinstance(x, str) else np.array([]))
+        
+        electronic_data['release_date'] = electronic_data['release_date'].apply(lambda x: pd.to_datetime(x.split(',')[0], format='%Y-%m-%dT%H:%M:%SZ'))
+        
+        casting_cols = {
+            "upc": "float64",
+            "weight_gram": "float64",
+            "price": "float64",
+            "release_date": "datetime64[ns]",
+            "is_sale": "boolean",
+            "category_name": "object" 
+        }
+
+        electronic_data = electronic_data.astype(casting_cols)
+
+        columns_missing = ['upc', 'weight_gram']
+        for column in columns_missing:
+            electronic_data[column] = electronic_data[column].fillna(value = 0)
+
+        electronic_data["manufacturer"] = electronic_data["manufacturer"].fillna(value="unknown")
+        validatation_process(data=electronic_data,
+                             table_name="electronic_products")
+
+        electronic_data.insert(0, 'id', range(1, len(electronic_data)+1))
+        
+        electronic_data.to_csv(self.output().path, index=False)
+
+luigi.build([TransformElectronicsData()], local_scheduler = True)
+
+def format_category(category_str):
+    try:
+        category_list = ast.literal_eval(category_str)
+        return '{' + ','.join(f'"{c.strip()}"' for c in category_list if c.strip()) + '}'
+    except:
+        return '{}'
+    
+class LoadElectornicData(luigi.Task):
+
+    def requires(self):
+        return TransformElectronicsData()
+
+    def output(self):
+        return luigi.LocalTarget("data/load/load_electronics_products_data.csv")
+
+    def run(self):
+        load_electronic_data = pd.read_csv(self.input().path)
+        load_electronic_data['created_at'] = datetime.now()
+        
+        load_electronic_data['category_name'] = load_electronic_data['category_name'].apply(format_category)
+
+        load_electronic_data = load_electronic_data.set_index("id")
+
+        dw_engine = data_warehouse_postgres_engine()
+
+        dw_table_name = "dw_electronic_products"
+        
+        upsert(con=dw_engine,
+                df=load_electronic_data,
+                table_name=dw_table_name,
+                if_row_exists="update",
+                chunksize=2000)
+            
+        load_electronic_data.to_csv(self.output().path, index = False)
+
+class LoadAmazonSalesData(luigi.Task):
+
+    def requires(self):
+        return TransformAmazonSalesData()
+
+    def output(self):
+        return luigi.LocalTarget("data/load/load_amazon_sales_data.csv")
+
+    def run(self):
+        load_amazon_data = pd.read_csv(self.input().path)
+        load_amazon_data['created_at'] = datetime.now()
+
+        load_amazon_data = load_amazon_data.set_index("id")
+
+        dw_engine = data_warehouse_postgres_engine()
+
+        dw_table_name = "dw_amazon_sales"
+        
+        upsert(con=dw_engine,
+                df=load_amazon_data,
+                table_name=dw_table_name,
+                if_row_exists="update",
+                chunksize=2000)
+            
+        load_amazon_data.to_csv(self.output().path, index = False)
+        
+class LoadUniversityData(luigi.Task):
+
+    def requires(self):
+        return TransformUniversityData()
+
+    def output(self):
+        return luigi.LocalTarget("data/load/load_universities_data.csv")
+
+    def run(self):
+        load_university_data = pd.read_csv(self.input().path)
+        load_university_data['created_at'] = datetime.now()
+
+        load_university_data = load_university_data.set_index("id")
+
+        dw_engine = data_warehouse_postgres_engine()
+
+        dw_table_name = "dw_universities"
+        
+        upsert(con=dw_engine,
+                df=load_university_data,
+                table_name=dw_table_name,
+                if_row_exists="update",
+                chunksize=2000)
+            
+        load_university_data.to_csv(self.output().path, index = False)
+
+luigi.build([
+    ExtractDBAmazonSalesData(),
+    ExtractAPIUniversitiesData(),
+    ExtractCsvFileElectronicProducts(),
+    ValidateData(),
+    TransformAmazonSalesData(),
+    TransformUniversityData(),
+    TransformElectronicsData(),
+    LoadUniversityData(),
+    LoadAmazonSalesData(),
+    LoadElectornicData()], local_scheduler = True)

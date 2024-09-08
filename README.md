@@ -1,30 +1,30 @@
-# Final Project: Introduction to Data Engineering
+# Proyek Akhir: Introduction to Data Engineering
 
-## Requirements Gathering & Proposed Solution
+## Requirements Gathering & Solution
 
-### Data Sources
-1. Sales data: Obtained from the Docker image https://hub.docker.com/r/shandytp/amazon-sales-data-docker-db
-   - To run the Docker container: `docker run --platform linux/amd64 -d -p 5433:5432 shandytp/amazon-sales-data-docker-db:latest`
-2. Marketing data: Sourced from the CSV file `ElectronicsProductsPricingData.csv`
-3. University data: Retrieved from the REST API http://universities.hipolabs.com/search?country=Indonesia, which provides data for universities throughout Indonesia
+### Data Source
+1. Data penjualan: Diperoleh dari Docker image https://hub.docker.com/r/shandytp/amazon-sales-data-docker-db
+   - Untuk menjalankan kontainer Docker: `docker run --platform linux/amd64 -d -p 5433:5432 shandytp/amazon-sales-data-docker-db:latest`
+2. Data pemasaran: Bersumber dari file CSV `ElectronicsProductsPricingData.csv`
+3. Data universitas: Diambil dari REST API http://universities.hipolabs.com/search?country=Indonesia, yang menyediakan data untuk universitas-universitas di seluruh Indonesia
 
-### Problems
-1. The Sales & Marketing team faces difficulties in obtaining product data due to the scattered nature of the data across various files, making it challenging to analyze product performance.
-2. The Sales team wants to identify the products with the highest customer ratings from the sales data.
-3. The Marketing team wants to determine the most popular electronic products in each category.
-4. The Sales team is interested in understanding the common domain patterns used by universities in Indonesia.
+### Problem
+1. Tim Penjualan & Pemasaran menghadapi kesulitan dalam memperoleh data produk karena data tersebar di berbagai file, sehingga sulit untuk menganalisis kinerja produk.
+2. Tim Penjualan ingin mengidentifikasi produk dengan rating pelanggan tertinggi dari data penjualan.
+3. Tim Pemasaran ingin menentukan produk elektronik yang paling populer di setiap kategori.
+4. Tim Penjualan tertarik untuk memahami pola domain yang umum digunakan oleh universitas-universitas di Indonesia.
 
-### Proposed Solutions
-1. Perform ETL (Extract, Transform, Load) processes to consolidate all the data into a single database.
-2. Use luigi as workflow scheduler
-3. Define a data warehouse schema that aligns with the business requirements and enables analysis of each problem.
-4. Implement a scheduler to ensure continuous updates of the data from various sources to the data warehouse.
-5. Implement an upsert process to handle any changes in the tables.
+### Solution
+1. Melakukan proses ETL (Extract, Transform, Load) untuk menggabungkan semua data ke dalam satu database.
+2. Menggunakan Luigi sebagai penjadwal alur kerja
+3. Menentukan skema gudang data yang sesuai dengan kebutuhan bisnis dan memungkinkan analisis setiap masalah.
+4. Mengimplementasikan penjadwal untuk memastikan pembaruan data secara berkelanjutan dari berbagai sumber ke gudang data.
+5. Mengimplementasikan proses upsert untuk menangani perubahan pada tabel-tabel.
 
-### Data Warehouse Schema
+### Schema Data Warehouse
 
-1. For the `amazon_sales_data` table:
-   - id(primary key)
+1. Untuk tabel `amazon_sales_data`:
+   - id (primary key)
    - product_name
    - main_category
    - sub_category
@@ -32,8 +32,8 @@
    - number_of_ratings
    - discount_price
    - actual_size
-2. For the `electronic_product_pricing_data` table:
-   - id(primary key)
+2. Untuk tabel `electronic_product_pricing_data`:
+   - id (primary key)
    - category_name
    - product_name
    - upc
@@ -44,40 +44,66 @@
    - condition
    - manufacturer
    - is_sale
-3. For the `universities` table:
-   - id(primary key)
+3. Untuk tabel `universities`:
+   - id (primary key)
    - name
    - country
    - alpha_two_code
    - domain
    - web_page_url
 
-## ETL Process
+## ETL Processing
 
-### Steps involved in the ETL process
-1. Extract data from various sources and load it into a staging area in CSV format.
-2. Perform data validation by checking data shape, data types, and handling missing values.
-3. Apply transformations if necessary, such as joining tables and cleansing data by examining column names, values in each column, and selecting the relevant columns to be stored in the data warehouse.
-4. Load all the transformed data into the data warehouse within a single database.
+### Langkah-langkah yang terlibat dalam proses ETL
+1. Mengekstrak data dari berbagai sumber dan memuat data tersebut ke area staging dalam format CSV.
+2. Melakukan validasi data dengan memeriksa bentuk data, tipe data, dan menangani nilai yang hilang.
+3. Menerapkan transformasi jika diperlukan, seperti menggabungkan tabel dan membersihkan data dengan memeriksa nama kolom, nilai di setiap kolom, dan memilih kolom yang relevan untuk disimpan di gudang data.
+4. Memuat semua data yang telah ditransformasi ke gudang data dalam satu database.
 
-### Design ETL Pipeline
+### Desain Alur ETL
 
-The following diagram illustrates the design of the ETL pipeline:
+Diagram berikut menggambarkan desain alur ETL:
 
 ![diagram](img/diagram.png)
 
-The ETL pipeline design consists of the following components:
+Desain alur ETL terdiri dari komponen-komponen berikut:
 
-1. **Extract**: This stage retrieves data from various sources, including Csv file electronic product, API universities and Docker DB Amazon sales.
+1. **Extract**: Tahap ini mengambil data dari berbagai sumber, termasuk file CSV produk elektronik, API universitas, dan Docker DB penjualan Amazon.
 
-2. **Validation**: The extracted data undergoes validation checks, including verifying data shape, data types, and handling missing values.
+2. **Validation**: Data yang diekstrak menjalani pemeriksaan validasi, termasuk memverifikasi bentuk data, tipe data, dan menangani nilai yang hilang.
 
-3. **Transform**: In this stage, data transformation tasks are performed, such as applying data cleansing techniques.
+3. **Transform**: Pada tahap ini, tugas-tugas transformasi data dilakukan, seperti menerapkan teknik pembersihan data.
 
-4. **Load**: The transformed data is loaded into the data warehouse for further analysis and reporting.
+4. **Load**: Data yang telah ditransformasi dimuat ke data warehouse untuk analisis lebih lanjut.
 
-5. **Extract Directory**: This represents the directory where the extracted data is stored before being processed.
+5. **Extract Directory**: Ini merepresentasikan direktori tempat data yang diekstrak disimpan sebelum diolah.
 
-The arrows indicate the flow of data between the different stages of the ETL pipeline.
+Tanda panah menunjukkan aliran data antara berbagai tahap alur ETL.
 
-The overall design is presented within a visually appealing layout, with a green border and the title "Luigi" at the top. Icons are used to represent specific technologies or components, such as PostgreSQL and Docker.
+Desain keseluruhan di jalankan dengan luigi dan proses insert data kedalam data warehouse dilakukan dengan metode upsert, kemudian di set proses scheduling dengan menggunakan crontab
+
+### Testing Scenario 1
+1. dalam scenario pertama ini raw data di load ke data warehouse dengan menggunakan luigi untuk workflow dependency nya
+![cmd](img/testing_scenario_1_cmd.png)
+
+2. contoh salah satu data csv amazon sales
+![csv](img/testing_scenario_1_csv.png)
+
+3. contoh data yang masuk ke data data warehouse di table amazon sales
+![db](img/testing_scenario_1_db.png)
+
+
+## In Progress
+
+- [x] Requirements Gathering & Solution
+- [x] ETL Pipeline Design:
+  - [x] Membuat Design ETL Pipeline
+  - [x] Penjelasan mengenai Design ETL Pipeline
+- [x] ETL Implementation:
+  - [x] Membuat ETL Pipeline
+  - [x] Extract seluruh source data
+  - [x] ETL Scheduling
+  - [x] Membuat Dockerfile / Docker Image
+- [x] Testing Scenario
+- [x] Publikasi Project di Github
+- [ ] Video Presentasi
