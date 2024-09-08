@@ -23,7 +23,7 @@
 
 ### Schema Data Warehouse
 
-1. Untuk tabel `amazon_sales_data`:
+1. Tabel `dw_amazon_sales_data`:
    - id (primary key)
    - product_name
    - main_category
@@ -32,7 +32,7 @@
    - number_of_ratings
    - discount_price
    - actual_size
-2. Untuk tabel `electronic_product_pricing_data`:
+2. Tabel `electronic_product_pricing_data`:
    - id (primary key)
    - category_name
    - product_name
@@ -104,15 +104,19 @@ Desain keseluruhan di jalankan dengan luigi dan proses insert data kedalam data 
 
 
 ### Set up Crontab
-1. type `crontab -e`
+1. RUN `crontab -e`
 2. set the timer and path to the runner file
 ![cron](img/crontab.png)
 
-### Running from Dockerfile
-1. type `docker build -t final-data-engineering .`
-2. type `docker run engineering`
+### Running from Source Code
+1. jangan lupa untuk membuat table terlebih dahulu , RUN `python3 create_table.py`
+2. RUN `python3 main.py`
 
-## Completed
+### Running from Dockerfile
+1. RUN `docker build -t final-data-engineering .`
+2. RUN `docker run engineering`
+
+## Completed (90%)
 
 - [x] Requirements Gathering & Solution
 - [x] ETL Pipeline Design:
