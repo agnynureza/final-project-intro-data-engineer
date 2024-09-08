@@ -23,34 +23,37 @@
 
 ### Schema Data Warehouse
 
-1. Tabel `dw_amazon_sales_data`:
+1. Tabel `dw_amazon_sales`:
    - id (primary key)
-   - product_name
    - main_category
    - sub_category
    - ratings
    - number_of_ratings
    - discount_price
-   - actual_size
-2. Tabel `electronic_product_pricing_data`:
+   - actual_price
+   - created_at
+2. Tabel `dw_electronic_products`:
    - id (primary key)
+   - electronic_id
    - category_name
    - product_name
    - upc
-   - weight
+   - weight_gram
    - price
    - currency
    - availability
    - condition
    - manufacturer
    - is_sale
-3. Untuk tabel `universities`:
+   - release_date
+   - created_at
+3. Untuk tabel `dw_universities`:
    - id (primary key)
    - name
    - country
-   - alpha_two_code
+   - website
    - domain
-   - web_page_url
+   - created_at
 
 ## ETL Processing
 
