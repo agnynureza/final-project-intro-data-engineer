@@ -92,8 +92,27 @@ Desain keseluruhan di jalankan dengan luigi dan proses insert data kedalam data 
 3. contoh data yang masuk ke data data warehouse di table amazon sales
 ![db](img/testing_scenario_1_db.png)
 
+### Testing Scenario 2
+1. dalam scenario kedua terlihat hanya beberapa proses saja yang jalan karena hanya dirubah data csv yang amazon sales
+![cmd](img/testing_scenario_2_cmd.png)
 
-## In Progress
+2. contoh salah satu data csv amazon sales yang dirubah
+![csv](img/testing_scenario_2_csv.png)
+
+3. contoh data yang masuk ke data data warehouse di table amazon sales ketika dirubah
+![db](img/testing_scenario_2_db.png)
+
+
+### Set up Crontab
+1. type `crontab -e`
+2. set the timer and path to the runner file
+![cron](img/crontab.png)
+
+### Running from Dockerfile
+1. type `docker build -t final-data-engineering .`
+2. type `docker run engineering`
+
+## Completed
 
 - [x] Requirements Gathering & Solution
 - [x] ETL Pipeline Design:
